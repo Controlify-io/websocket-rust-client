@@ -1,0 +1,7 @@
+[package]
+name = "websocket-rust-client"
+version = "0.1.0"
+authors = ["Andrew Wilson <drbobchoco+bitbucket@gmail.com>"]
+
+[dependencies]
+tungstenite = "*"
