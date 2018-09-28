@@ -1,5 +1,5 @@
 extern crate tungstenite;
-use tungstenite::{Message, connect};
+use tungstenite::{connect, Message};
 
 extern crate url;
 use url::Url;
@@ -16,12 +16,10 @@ fn main() {
     let server_url = "ws://192.168.0.200:3001";
     //Bail out on same errors as JS
     let mut handlers = HashMap::new();
-    handlers.insert(
-        "pin".to_string(),
-        "pi-pin".to_string(),
-    );
+    handlers.insert("pin".to_string(), "pi-pin".to_string());
 
-    let (mut socket, response) = connect(Url::parse(server_url).unwrap()).expect(format!("Can't connect to {}", server_url).as_str());
+    let (mut socket, response) = connect(Url::parse(server_url).unwrap())
+        .expect(format!("Can't connect to {}", server_url).as_str());
     let mut message_handler = MessageHandler::new(handlers);
 
     loop {
@@ -64,15 +62,16 @@ fn handshake(msg: String, stage: u32) -> (bool, String) {
                 //some warning here
             } else if msg.starts_with("unsupported") {
                 panic!(format!("Error: {}", msg));
-            }
-            else {
+            } else {
                 panic!("Unrecognised handshake response from server");
             }
 
             handshake_response = "ok".to_owned();
             done = true;
         }
-        _ => { panic!("Call to handshake() after handshake finished"); }
+        _ => {
+            panic!("Call to handshake() after handshake finished");
+        }
     }
 
     (done, handshake_response)

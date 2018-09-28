@@ -1,6 +1,6 @@
 //Handles messages from the server, each in their own thread
 use std::collections::HashMap;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 const NUM_PINS: i8 = 15;
@@ -27,8 +27,8 @@ impl MessageHandler {
         let pin_locks = Arc::clone(&self.pin_locks);
     }
 }
-    // Start new thread
-    // Get contents, break up and parse / order pin numbers
-    // Get locks for all required pins
-    // exec commands
-    // scope releases pin locks
+// Start new thread
+// Get contents, break up and parse / order pin numbers
+// Get locks for all required pins
+// exec commands
+// scope releases pin locks
