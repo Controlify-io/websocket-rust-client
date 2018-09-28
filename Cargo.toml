@@ -5,3 +5,4 @@ authors = ["Andrew Wilson <drbobchoco+bitbucket@gmail.com>"]
 
 [dependencies]
 tungstenite = "*"
+url = "*"
