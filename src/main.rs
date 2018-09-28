@@ -2,7 +2,8 @@ extern crate tungstenite;
 extern crate url;
 
 use url::Url;
-use tungstenite::{Message, connect};
+use tungstenite::{Message, connect, WebSocket};
+use tungstenite::client::AutoStream;
 
 fn main() {
     let mut handshake_done = false;
@@ -11,21 +12,20 @@ fn main() {
     println!("Hello, world!");
 
     //Read config (file and args)
-    let server_url = "ws://192.168/0/2000:3001";
+    let server_url = "ws://192.168.0.200:3001";
     //Bail out on same errors as JS
     //Open websoocket to server
-    let (mut socket, response) = connect(Url::parse(server_url).unwrap()).expect(format("Can't connect to {}", server_url));
-    //Do handshake
+    let (mut socket, response) = connect(Url::parse(server_url).unwrap()).expect(format!("Can't connect to {}", server_url).as_str());
     loop {
-        let msg = socket.read_mesage().expect("Read failed");
+        let msg = socket.read_message().expect("Read failed");
 
         if msg.is_text() {
             let msg_text = msg.into_text().expect("Failed to get message text");
 
             if handshake_done {
             } else {
-                handshake_done = handshake(msg_text, handshake_stage);
-                handshake_stage++;
+                handshake_done = handshake(msg_text, handshake_stage, &mut socket);
+                handshake_stage += 1;
             }
         }
     }
@@ -38,16 +38,16 @@ fn main() {
     //  release pin locks
 }
 
-fn handshake(msg: String, stage: u32, socket: WebSocket) -> bool {
+fn handshake(msg: String, stage: u32, socket: &mut WebSocket<AutoStream>) -> bool {
     let mut done = false;
 
     match stage {
         0 => {
             if !msg.starts_with("controlify.io server2") {
-                panic("Unrecognised handshake from server");
+                panic!("Unrecognised handshake from server");
             }
 
-            socket.send_message(new Message("Some client info here"));
+            socket.write_message(Message::Text("Some client info here".to_owned()));
         }
         1 => {
             if msg.trim() == "ok" {
@@ -55,16 +55,16 @@ fn handshake(msg: String, stage: u32, socket: WebSocket) -> bool {
             } else if msg.starts_with("deprecated") {
                 //some warning here
             } else if msg.starts_with("unsupported") {
-                panic(format("Error: {}", msg));
+                panic!(format!("Error: {}", msg));
             }
             else {
-                panic("Unrecognised handshake response from server");
+                panic!("Unrecognised handshake response from server");
             }
 
-            socket.send_message("ok");
+            socket.write_message(Message::Text("ok".to_owned()));
             done = true;
         }
-        _ => { panic("Call to handshake() after handshake finished"); }
+        _ => { panic!("Call to handshake() after handshake finished"); }
     }
 
     done
