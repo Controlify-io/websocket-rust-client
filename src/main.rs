@@ -1,45 +1,53 @@
 extern crate tungstenite;
-extern crate url;
+use tungstenite::{Message, connect};
 
+extern crate url;
 use url::Url;
-use tungstenite::{Message, connect, WebSocket};
-use tungstenite::client::AutoStream;
+
+use std::collections::HashMap;
+
+mod message_handler;
+use message_handler::MessageHandler;
 
 fn main() {
-    let mut handshake_done = false;
-    let mut handshake_stage = 0;
-
     println!("Hello, world!");
 
     //Read config (file and args)
     let server_url = "ws://192.168.0.200:3001";
     //Bail out on same errors as JS
-    //Open websoocket to server
+    let mut handlers = HashMap::new();
+    handlers.insert(
+        "pin".to_string(),
+        "pi-pin".to_string(),
+    );
+
     let (mut socket, response) = connect(Url::parse(server_url).unwrap()).expect(format!("Can't connect to {}", server_url).as_str());
+    let mut message_handler = MessageHandler::new(handlers);
+
     loop {
+        let mut handshake_done = false;
+        let mut handshake_stage = 0;
         let msg = socket.read_message().expect("Read failed");
 
         if msg.is_text() {
             let msg_text = msg.into_text().expect("Failed to get message text");
 
             if handshake_done {
+                message_handler.handle_message(msg_text);
             } else {
-                handshake_done = handshake(msg_text, handshake_stage, &mut socket);
+                let handshake_response: String;
+
+                let (handshake_done, handshake_response) = handshake(msg_text, handshake_stage);
+                socket.write_message(Message::Text(handshake_response));
                 handshake_stage += 1;
             }
         }
     }
-    //Wait for incoming message
-    //Get contents, break up and add lock / unlock commands first?
-    //  Start new thread
-    //  Have array of bools for pin locks in a mutex
-    //  Get locks for all required pins
-    //  exec commands
-    //  release pin locks
 }
 
-fn handshake(msg: String, stage: u32, socket: &mut WebSocket<AutoStream>) -> bool {
+fn handshake(msg: String, stage: u32) -> (bool, String) {
     let mut done = false;
+    let mut handshake_response: String;
 
     match stage {
         0 => {
@@ -47,7 +55,7 @@ fn handshake(msg: String, stage: u32, socket: &mut WebSocket<AutoStream>) -> boo
                 panic!("Unrecognised handshake from server");
             }
 
-            socket.write_message(Message::Text("Some client info here".to_owned()));
+            handshake_response = "Some client info here".to_owned();
         }
         1 => {
             if msg.trim() == "ok" {
@@ -61,11 +69,11 @@ fn handshake(msg: String, stage: u32, socket: &mut WebSocket<AutoStream>) -> boo
                 panic!("Unrecognised handshake response from server");
             }
 
-            socket.write_message(Message::Text("ok".to_owned()));
+            handshake_response = "ok".to_owned();
             done = true;
         }
         _ => { panic!("Call to handshake() after handshake finished"); }
     }
 
-    done
+    (done, handshake_response)
 }
