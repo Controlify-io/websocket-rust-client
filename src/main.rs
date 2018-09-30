@@ -5,9 +5,13 @@ extern crate url;
 use url::Url;
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 mod message_handler;
-use message_handler::MessageHandler;
+use message_handler::handle_message;
+
+const NUM_PINS: i8 = 16;
 
 fn main() {
     println!("Hello, world!");
@@ -15,23 +19,33 @@ fn main() {
     //Read config (file and args)
     let server_url = "ws://192.168.0.200:3001";
     //Bail out on same errors as JS
+    let (mut socket, response) = connect(Url::parse(server_url).unwrap())
+        .expect(format!("Can't connect to {}", server_url).as_str());
+
+    let mut handshake_done = false;
+    let mut handshake_stage = 0;
+
     let mut handlers = HashMap::new();
     handlers.insert("pin".to_string(), "pi-pin".to_string());
 
-    let (mut socket, response) = connect(Url::parse(server_url).unwrap())
-        .expect(format!("Can't connect to {}", server_url).as_str());
-    let mut message_handler = MessageHandler::new(handlers);
+    let mut pin_locks_vec: Vec<Mutex<i8>> = Vec::new();
+    for lock in 0..NUM_PINS {
+        pin_locks_vec.push(Mutex::new(0));
+    }
+    let mut pin_locks = Arc::new(pin_locks_vec);
 
     loop {
-        let mut handshake_done = false;
-        let mut handshake_stage = 0;
         let msg = socket.read_message().expect("Read failed");
 
         if msg.is_text() {
             let msg_text = msg.into_text().expect("Failed to get message text");
 
             if handshake_done {
-                message_handler.handle_message(msg_text);
+                let pin_locks = Arc::clone(&pin_locks);
+                let handlers = HashMap::clone(&handlers);
+                thread::spawn(move || {
+                    handle_message(msg_text, handlers, pin_locks);
+                });
             } else {
                 let handshake_response: String;
 
